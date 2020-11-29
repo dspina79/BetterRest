@@ -10,12 +10,12 @@ import SwiftUI
 struct ContentView: View {
     @State private var wakeUp = defaultWakeupTime
     @State private var sleepAmount = 8.0
-    @State private var coffeeAmount = 1
+    @State private var coffeeAmount = 0
     
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var showMessage = false
-    
+
     // needs to be static because we are basing one property on another
     // two instance properties cannot be used
     static var defaultWakeupTime: Date {
@@ -28,40 +28,40 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             Form {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("What time do you want to wake up?")
-                        .font(.headline)
+                Section(header: Text("What time do you want to wake up?")) {
                     DatePicker("Please enter wakeup time", selection: $wakeUp, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
                 
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Desired amount of sleep")
-                        .font(.headline)
+                Section(header: Text("Desired amount of sleep")) {
                     Stepper(value: $sleepAmount, in: 4...12, step: 0.25) {
                         Text("\(sleepAmount, specifier: "%g") hours")
                     }
                 }
                 
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Number of cups of coffee")
-                        .font(.headline)
-                    Stepper(value: $coffeeAmount, in: 1...20, step: 1) {
-                        let cupsString = coffeeAmount > 1 ? "cups" : "cup"
-                        Text("\(coffeeAmount) \(cupsString)")
+                Section(header: Text("Number of cups of coffee")) {
+                    Picker(selection: $coffeeAmount, label: Text("Cups")) {
+                        ForEach(1..<101) { item in
+                            let cupString = item > 1 ? "cups" : "cup"
+                            Text("\(item) \(cupString)")
+                        }
                     }
                 }
+                Text("\(alertMessage)")
+                    .fontWeight(/*@START_MENU_TOKEN@*/.bold/*@END_MENU_TOKEN@*/)
+                    .font(.largeTitle)
             }
             .navigationTitle("BetterRest")
-            .navigationBarItems(trailing:
-                                    Button(action: calculateBedtime) {
-                                        Text("Calculate")
-                                    }
-            // using action: <method> is legal. Just don't need ()
-            )
-            .alert(isPresented: $showMessage) {
-                Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("Ok")))
+            .onAppear() {
+                calculateBedtime()
             }
+            .onChange(of: self.sleepAmount, perform: { value in
+                calculateBedtime()
+            })
+            .onChange(of: self.wakeUp, perform: { value in
+                calculateBedtime()
+            })
+            
         }
     }
     
@@ -72,7 +72,7 @@ struct ContentView: View {
         let minute = (components.minute ?? 0) * 60
         
         do {
-            let prediction = try model.prediction(wake: Double(hour + minute), estimatedSleep: sleepAmount, coffee: Double(coffeeAmount))
+            let prediction = try model.prediction(wake: Double(hour + minute), estimatedSleep: sleepAmount, coffee: Double(coffeeAmount + 1))
             
             let sleepTime = wakeUp - prediction.actualSleep
             let formatter = DateFormatter()
@@ -84,7 +84,6 @@ struct ContentView: View {
             alertTitle = "Error"
             alertMessage = "Sorry, there was an error in predicting your bedtime."
         }
-        showMessage = true
     }
 }
 struct ContentView_Previews: PreviewProvider {
